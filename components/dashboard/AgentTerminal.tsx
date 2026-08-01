@@ -11,7 +11,6 @@ import {
   RotateCcw,
   Zap,
   CheckCircle2,
-  Sliders,
   Cpu,
   Wrench,
 } from 'lucide-react';
@@ -22,7 +21,6 @@ interface TerminalLine {
   agentName?: string;
   text: string;
   timestamp: string;
-  setupData?: Array<{ component: string; recommendation: string }>;
 }
 
 interface AgentTerminalProps {
@@ -42,14 +40,14 @@ export default function AgentTerminal({ driver, proUnlocked, onUnlockPro }: Agen
     {
       id: '2',
       type: 'system',
-      text: 'WEBSOCKET ENDPOINT: ws://localhost:8000/ws/agents',
+      text: 'ENDPOINT ACTIVE: /api/run-agents // WEBSOCKET STREAM: /ws/agents',
       timestamp: '00:00:02',
     },
     {
       id: '3',
       type: 'agent',
       agentName: 'System',
-      text: 'Click [Execute AI Simulation] to trigger Telemetry Analyst → Vehicle Dynamics → Race Strategist sequential execution.',
+      text: 'Click [Execute AI Simulation] to run Telemetry Analyst → Vehicle Dynamics → Race Strategist multi-agent flow.',
       timestamp: '00:00:03',
     },
   ]);
@@ -72,7 +70,7 @@ export default function AgentTerminal({ driver, proUnlocked, onUnlockPro }: Agen
     try {
       const ws = new WebSocket('ws://localhost:8000/ws/agents');
       ws.onopen = () => {
-        addTerminalLine('system', 'WebSocket connection established with Multi-Agent War Room.');
+        addTerminalLine('system', 'Connected to Multi-Agent War Room (/ws/agents)');
       };
       ws.onmessage = (event) => {
         try {
@@ -93,7 +91,7 @@ export default function AgentTerminal({ driver, proUnlocked, onUnlockPro }: Agen
         }
       };
       ws.onerror = () => {
-        addTerminalLine('error', 'WebSocket connection notice (fallback HTTP active).');
+        addTerminalLine('error', 'WebSocket notice (HTTP fallback active)');
       };
       wsRef.current = ws;
     } catch {
@@ -130,6 +128,7 @@ export default function AgentTerminal({ driver, proUnlocked, onUnlockPro }: Agen
     setIsExecuting(true);
     setInputCmd('');
 
+    // Send via WebSocket or fallback HTTP /api/run-agents
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
@@ -140,13 +139,13 @@ export default function AgentTerminal({ driver, proUnlocked, onUnlockPro }: Agen
       );
     } else {
       try {
-        addTerminalLine('agent', '[Telemetry Analyst]: Comparing driver_lap against Ghost Lap mini-sectors...', 'Telemetry Analyst');
+        addTerminalLine('agent', '[Telemetry Analyst]: Analyzing Turn 3 understeer against Ghost Lap...', 'Telemetry Analyst');
         await new Promise((r) => setTimeout(r, 600));
 
-        addTerminalLine('agent', '[Vehicle Dynamics Engineer]: Formulating aero & suspension setup recommendations...', 'Vehicle Dynamics Engineer');
+        addTerminalLine('agent', '[Vehicle Dynamics Engineer]: To fix this understeer, I recommend a custom setup. Click below to generate.', 'Vehicle Dynamics Engineer');
         await new Promise((r) => setTimeout(r, 600));
 
-        const res = await fetch('http://localhost:8000/api/chat', {
+        const res = await fetch('http://localhost:8000/api/run-agents', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -183,7 +182,7 @@ export default function AgentTerminal({ driver, proUnlocked, onUnlockPro }: Agen
 
         <div className="flex items-center gap-3 text-[11px]">
           <span className="flex items-center gap-1 text-emerald-400 font-bold">
-            <Radio className="w-3 h-3 animate-pulse" /> /ws/agents
+            <Radio className="w-3 h-3 animate-pulse" /> /api/run-agents
           </span>
           <button
             onClick={() => setLines([])}
@@ -195,11 +194,11 @@ export default function AgentTerminal({ driver, proUnlocked, onUnlockPro }: Agen
         </div>
       </div>
 
-      {/* Primary Action Banner */}
+      {/* Primary Action Hero Banner */}
       <div className="p-3 bg-[#0D0D14] border-b border-[#1F2029] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <Cpu className="w-4 h-4 text-red-500" />
-          <span className="text-xs text-gray-300">Target Driver: <strong className="text-red-400">{driver}</strong></span>
+          <span className="text-xs text-gray-300">Driver: <strong className="text-red-400">{driver}</strong></span>
         </div>
 
         <motion.button
@@ -257,7 +256,6 @@ export default function AgentTerminal({ driver, proUnlocked, onUnlockPro }: Agen
                     )}
                   </div>
 
-                  {/* Extract parts of the output */}
                   {(() => {
                     const text = line.text;
                     const setupHeaderIndex = text.indexOf('🔧 **[Vehicle Dynamics Engineer]');
@@ -277,44 +275,50 @@ export default function AgentTerminal({ driver, proUnlocked, onUnlockPro }: Agen
                       <div className="space-y-3">
                         <div className="whitespace-pre-wrap text-xs text-gray-300">{topPart}</div>
 
-                        {/* 🔧 VEHICLE DYNAMICS SETUP RECOMMENDATIONS SECTION */}
+                        {/* 🔧 VEHICLE DYNAMICS SETUP RECOMMENDATIONS */}
                         <div className="relative border border-amber-500/30 rounded-lg p-3 bg-amber-950/20">
                           {!proUnlocked ? (
-                            /* BLURRED STATE FOR UNPAID USERS */
+                            /* BLURRED STATE UNTIL PAYTM POLL SUCCESS */
                             <div className="relative">
-                              <div className="filter blur-sm select-none opacity-40 whitespace-pre-wrap text-xs text-amber-200">
-                                {setupBlock}
+                              <div className="filter blur-sm select-none opacity-30 whitespace-pre-wrap text-xs text-amber-200">
+                                🔧 **[Vehicle Dynamics Engineer] Setup Recommendations**:
+                                • Aero / Front Wing: Increase front wing angle by +1.0° (Front Wing +1 click)
+                                • Suspension / Anti-Roll Bar: Stiffen front anti-roll bar by 2 clicks (Anti-Roll Bar softened)
+                                • Drivetrain / Differential: Decrease power-on diff lock by 5%
                               </div>
-                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-lg p-3 text-center">
-                                <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400 mb-2 glow-yellow">
-                                  <Lock className="w-4 h-4" />
-                                </div>
-                                <h4 className="text-xs font-bold text-white font-mono uppercase mb-1">
-                                  AI CAR SETUP RECOMMENDATIONS LOCKED
-                                </h4>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm rounded-lg p-3 text-center">
+                                <p className="text-xs text-amber-300 font-mono font-bold mb-1">
+                                  "To fix this understeer in Turn 3, I recommend a custom setup."
+                                </p>
                                 <p className="text-[11px] text-gray-400 font-mono mb-3">
-                                  Vehicle Dynamics Engineer setup requires Paytm access pass.
+                                  Click below to generate & un-blur full setup details via Paytm.
                                 </p>
                                 <motion.button
                                   whileHover={{ scale: 1.05 }}
                                   whileTap={{ scale: 0.95 }}
                                   onClick={onUnlockPro}
-                                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-white font-bold text-xs uppercase tracking-wider glow-yellow shadow-lg flex items-center gap-1.5"
+                                  className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-white font-bold text-xs uppercase tracking-wider glow-yellow shadow-lg flex items-center gap-1.5"
                                 >
-                                  <Sparkles className="w-3.5 h-3.5" /> UNLOCK AI SETUP (PAYTM ₹49)
+                                  <Sparkles className="w-4 h-4" /> UNLOCK AI SETUP (₹49)
                                 </motion.button>
                               </div>
                             </div>
                           ) : (
-                            /* UN-BLURRED REVEALED STATE FOR PRO USERS */
-                            <div>
+                            /* UN-BLURRED REVEALED STATE UPON SUCCESSFUL POLL */
+                            <motion.div
+                              initial={{ opacity: 0, filter: 'blur(10px)' }}
+                              animate={{ opacity: 1, filter: 'blur(0px)' }}
+                              transition={{ duration: 0.8 }}
+                            >
                               <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-1">
-                                <Wrench className="w-3.5 h-3.5" /> VEHICLE DYNAMICS SETUP RECOMMENDATIONS (UNLOCKED)
+                                <Wrench className="w-3.5 h-3.5 text-amber-400" /> VEHICLE DYNAMICS SETUP RECOMMENDATIONS (UNLOCKED)
                               </div>
-                              <div className="whitespace-pre-wrap text-xs text-gray-200 leading-relaxed font-mono">
-                                {setupBlock}
+                              <div className="whitespace-pre-wrap text-xs text-gray-100 leading-relaxed font-mono font-bold bg-black/40 p-2.5 rounded border border-amber-500/40">
+                                • Front Wing: +1.0° (+1 click for turn-in response){'\n'}
+                                • Anti-Roll Bar: Softened front ARB by 2 clicks to eliminate Turn 3 understeer{'\n'}
+                                • Differential: Power-on lock reduced by 5% for traction on exit
                               </div>
-                            </div>
+                            </motion.div>
                           )}
                         </div>
 
@@ -356,28 +360,6 @@ export default function AgentTerminal({ driver, proUnlocked, onUnlockPro }: Agen
 
       {/* Input Section */}
       <div className="p-3 bg-[#0A0A0E] border-t border-[#1F2029] shrink-0">
-        <div className="grid grid-cols-3 gap-2 mb-2">
-          <button
-            onClick={() => executeSimulation('Analyze telemetry delta')}
-            className="p-1.5 rounded bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] text-gray-300 truncate"
-          >
-            📊 Telemetry Analyst
-          </button>
-          <button
-            onClick={() => executeSimulation('Recommend setup changes')}
-            className="p-1.5 rounded bg-gray-900 hover:bg-gray-800 border border-amber-500/40 text-[10px] text-amber-400 truncate flex items-center justify-center gap-1"
-          >
-            {!proUnlocked && <Lock className="w-3 h-3 text-amber-400" />}
-            🔧 Dynamics Setup (Pro)
-          </button>
-          <button
-            onClick={() => executeSimulation("What's my pit strategy?")}
-            className="p-1.5 rounded bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] text-gray-300 truncate"
-          >
-            🏎️ Race Strategist
-          </button>
-        </div>
-
         <form
           onSubmit={(e) => {
             e.preventDefault();

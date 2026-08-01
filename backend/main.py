@@ -22,7 +22,7 @@ from payments import router as payments_router
 app = FastAPI(
     title="Apex AI - The Autonomous Race Engineer API",
     description="Multi-Agent F1 War Room API with Paytm Fintech Transaction Lifecycle (Order Creation, Webhooks, Idempotency, SHA256 Checksums, Real-time Status Polling).",
-    version="2.1.0"
+    version="2.2.0"
 )
 
 # Enable CORS for Next.js frontend
@@ -48,13 +48,14 @@ def read_root():
         "status": "online",
         "service": "Apex AI Multi-Agent War Room API",
         "agents": ["Telemetry Analyst", "Vehicle Dynamics Engineer", "Race Strategist"],
-        "paytm_fintech_flow": {
+        "endpoints": {
+            "run_agents": "/api/run-agents",
+            "chat": "/api/chat",
+            "websocket": "/ws/agents",
             "create_order": "/api/paytm/create-order",
-            "webhook": "/api/paytm/webhook",
             "check_status": "/api/paytm/check-status/{order_id}",
-            "simulate": "/api/paytm/simulate-payment"
-        },
-        "websocket": "/ws/agents"
+            "webhook": "/api/paytm/webhook"
+        }
     }
 
 @app.get("/api/telemetry/{driver}/{lap}")
@@ -106,6 +107,25 @@ def get_telemetry_endpoint(driver: str, lap: str = "fastest"):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/run-agents")
+def run_agents_endpoint(req: ChatRequest):
+    """
+    Mphasis /api/run-agents endpoint executing Multi-Agent War Room reasoning.
+    """
+    try:
+        ai_response = run_apex_race_engineer_agent(
+            prompt=req.prompt,
+            driver=req.driver or "Verstappen",
+            pro_unlocked=req.pro_unlocked or False
+        )
+        return {
+            "prompt": req.prompt,
+            "response": ai_response,
+            "pro_unlocked": req.pro_unlocked
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.websocket("/ws/agents")
 async def websocket_multi_agent_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -131,19 +151,7 @@ async def websocket_multi_agent_endpoint(websocket: WebSocket):
 
 @app.post("/api/chat")
 def chat_endpoint(req: ChatRequest):
-    try:
-        ai_response = run_apex_race_engineer_agent(
-            prompt=req.prompt,
-            driver=req.driver or "Verstappen",
-            pro_unlocked=req.pro_unlocked or False
-        )
-        return {
-            "prompt": req.prompt,
-            "response": ai_response,
-            "pro_unlocked": req.pro_unlocked
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return run_agents_endpoint(req)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
