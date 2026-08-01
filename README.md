@@ -1,12 +1,12 @@
 # 🏎️ APEX AI — The Autonomous Race Engineer
 
-> **A Full-Stack, Hackathon-Winning Motorsports Intelligence & AI Strategy Platform** combining 3D Web Interfaces, FastF1 Telemetry, Machine Learning Corner Loss Detection, Multi-Agent War Room Reasoning, and Paytm Payment Gateway Integration.
+> **A Full-Stack, Hackathon-Winning Motorsports Intelligence & AI Strategy Platform** combining 3D Web Interfaces, FastF1 Telemetry, Machine Learning Corner Loss Detection, Multi-Agent War Room Reasoning, Pydantic Data Validation, LangChain Tool Calling, and Paytm Payment Gateway Integration.
 
 ---
 
 ## 🌟 Overview
 
-**Apex AI** brings Formula 1 race engineering to the next level. Built for drivers, race strategists, and motorsports enthusiasts, Apex AI ingests real-time 100Hz F1 telemetry data, compares it against a theoretical **"Ghost Car"** (synthesized from the session's fastest mini-sectors), detects micro-driving mistakes via custom **XGBoost ML models**, streams multi-agent reasoning over **WebSockets**, and handles instant payment unlocking via **Paytm UPI**.
+**Apex AI** brings Formula 1 race engineering to the next level. Built for drivers, race strategists, and motorsports enthusiasts, Apex AI ingests real-time 100Hz F1 telemetry data, compares it against a theoretical **"Ghost Car"** (synthesized from the session's fastest mini-sectors), detects micro-driving mistakes via custom **XGBoost ML models**, enforces enterprise **Pydantic data schemas** with `@tool` decorators, streams multi-agent reasoning over **WebSockets**, and handles instant payment unlocking via **Paytm UPI**.
 
 ---
 
@@ -21,15 +21,17 @@
 - **Telemetry Gauges**: Animated circular progress bars for **Throttle %**, **Brake Pressure %**, **Gear Indicator**, and **DRS State**.
 - **Speed Profile Area Chart**: Interactive Recharts graph comparing **Driver Speed vs Ghost Car Target Speed** across lap distance (0m - 3337m).
 
-### 3. Multi-Agent War Room & Real-Time Thought Streaming
-- **3 Specialized Sequential Agents**:
-  1. **Telemetry Analyst**: Compares `driver_lap` against `ghost_lap` mini-sectors and extracts corner time loss JSON.
-  2. **Vehicle Dynamics Engineer**: Formulates chassis & aerodynamic setup changes (*"Increase front wing angle by +1.0°"*, *"Stiffen front anti-roll bar by 2 clicks"*).
-  3. **Race Strategist**: Calculates optimal pit window (L24-L27), tyre degradation curves, and undercut deltas.
-- **WebSocket Streaming (`/ws/agents`)**: Streams the agent's thought process line-by-line in real-time to the **Agent Terminal Console**.
+### 3. Multi-Agent Enterprise Flow (Pydantic + LangChain `@tool`)
+- **Pydantic Data Schemas (`CornerAnalysisSchema`, `CarSetupRecommendationSchema`, `PitStrategySchema`)**: Enforces strict structural typing for all agent outputs.
+- **LangChain Tool Calling (`@tool(args_schema=...)`)**:
+  - `@tool` `log_telemetry_issue`: Logs corner mistake annotations with exact turn numbers, reasons, and time deltas.
+  - `@tool` `recommend_car_setup`: Logs actionable aerodynamic and suspension adjustments.
+  - `@tool` `calculate_undercut_strategy`: Computes pit windows and tyre wear rates.
+- **WebSocket Streaming (`/ws/agents`)**: Streams agent thought processes line-by-line in real-time to the **Agent Terminal Console**.
 
-### 4. Paytm Payment Gateway Integration
-- **Glassmorphism Payment Modal**: Backdrop-blur modal rendering an official Paytm UPI QR code.
+### 4. Paytm Payment Gateway Integration & Fintech Lifecycle
+- **Paytm Order Creation & Signatures**: Backend generates unique `order_id` and SHA256 HMAC checksum signature before rendering QR code.
+- **Webhook & Idempotency Guard**: Webhook endpoint `/api/paytm/webhook` verifies checksums and enforces idempotency against duplicate re-fires.
 - **Paytm Setup & Strategy Unlock**: Un-blurs Vehicle Dynamics Engineer setup recommendations upon instant payment verification.
 
 ---
@@ -40,8 +42,8 @@
 - **Backend**: Python 3.9+, FastAPI, Uvicorn, WebSockets.
 - **Data Pipeline**: FastF1 (Official F1 Timing & Telemetry Data), Pandas, NumPy.
 - **Machine Learning**: XGBoost, Scikit-learn, Joblib.
-- **AI Agentic Layer**: LangChain, Multi-Agent Architecture, FAISS Vector DB (RAG).
-- **Payments**: Paytm Payment Gateway API (UPI QR & Webhooks).
+- **AI Agentic Layer**: LangChain, Pydantic v1/v2 Schemas, `@tool` Tool Calling, Multi-Agent Architecture, FAISS Vector DB (RAG).
+- **Payments**: Paytm Payment Gateway API (Order Creation, SHA256 Signatures, Idempotency, Webhooks).
 
 ---
 
@@ -101,13 +103,14 @@ npx concurrently "PYTHONPATH=backend python3 -m uvicorn backend.main:app --port 
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/` | API status and service engine info |
+| `GET` | `/` | API status and multi-agent service engine info |
 | `GET` | `/api/telemetry/{driver}/{lap}` | Returns `driver_lap`, `ghost_lap`, and ML corner mistake annotations |
 | `POST` | `/api/chat` | Standard HTTP POST endpoint for AI Race Engineer queries |
 | `WS` | `/ws/agents` | WebSocket endpoint streaming multi-agent thoughts line-by-line |
-| `POST` | `/api/paytm/create_order` | Generates a Paytm UPI order ID and QR code string |
-| `POST` | `/api/paytm/webhook` | Handles Paytm payment success webhook callback |
-| `GET` | `/api/paytm/status/{order_id}` | Polls payment status for an order ID |
+| `POST` | `/api/paytm/create-order` | Generates a Paytm UPI order ID, SHA256 checksum, and QR code string |
+| `POST` | `/api/paytm/webhook` | Handles Paytm payment success webhook callback with idempotency guard |
+| `GET` | `/api/paytm/check-status/{order_id}` | Polls payment status for an order ID |
+| `POST` | `/api/paytm/simulate-payment` | Demo endpoint simulating Paytm webhook trigger |
 
 ---
 
