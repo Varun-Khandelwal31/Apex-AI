@@ -17,12 +17,12 @@ from typing import Optional
 from data_pipeline import get_driver_telemetry, generate_ghost_lap
 from inference import analyze_mistakes
 from ai_agent import run_multi_agent_war_room_stream, run_apex_race_engineer_agent
-from payments import create_paytm_order, process_paytm_webhook, check_payment_status
+from payments import router as payments_router
 
 app = FastAPI(
     title="Apex AI - The Autonomous Race Engineer API",
-    description="Multi-Agent F1 War Room backend (Telemetry Analyst, Vehicle Dynamics, Race Strategist) with WebSocket real-time thought streaming & Paytm gateway.",
-    version="2.0.0"
+    description="Multi-Agent F1 War Room API with Paytm Fintech Transaction Lifecycle (Order Creation, Webhooks, Idempotency, SHA256 Checksums, Real-time Status Polling).",
+    version="2.1.0"
 )
 
 # Enable CORS for Next.js frontend
@@ -34,15 +34,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount Paytm Payments APIRouter
+app.include_router(payments_router)
+
 class ChatRequest(BaseModel):
     prompt: str
     driver: Optional[str] = "Verstappen"
     pro_unlocked: Optional[bool] = False
-
-class WebhookRequest(BaseModel):
-    order_id: str
-    amount: Optional[float] = 49.0
-    status: Optional[str] = "TXN_SUCCESS"
 
 @app.get("/")
 def read_root():
@@ -50,14 +48,17 @@ def read_root():
         "status": "online",
         "service": "Apex AI Multi-Agent War Room API",
         "agents": ["Telemetry Analyst", "Vehicle Dynamics Engineer", "Race Strategist"],
+        "paytm_fintech_flow": {
+            "create_order": "/api/paytm/create-order",
+            "webhook": "/api/paytm/webhook",
+            "check_status": "/api/paytm/check-status/{order_id}",
+            "simulate": "/api/paytm/simulate-payment"
+        },
         "websocket": "/ws/agents"
     }
 
 @app.get("/api/telemetry/{driver}/{lap}")
 def get_telemetry_endpoint(driver: str, lap: str = "fastest"):
-    """
-    Returns driver_lap, ghost_lap, combined telemetry array, and ML corner mistakes.
-    """
     try:
         df_driver = get_driver_telemetry(driver, lap)
         df_ghost = generate_ghost_lap()
@@ -107,11 +108,6 @@ def get_telemetry_endpoint(driver: str, lap: str = "fastest"):
 
 @app.websocket("/ws/agents")
 async def websocket_multi_agent_endpoint(websocket: WebSocket):
-    """
-    WebSocket Endpoint (/ws/agents):
-    Streams the 'thought process' of Telemetry Analyst, Vehicle Dynamics Engineer,
-    and Race Strategist in real-time to the frontend.
-    """
     await websocket.accept()
     try:
         while True:
@@ -125,7 +121,6 @@ async def websocket_multi_agent_endpoint(websocket: WebSocket):
             driver = data.get("driver", "Verstappen")
             pro_unlocked = data.get("pro_unlocked", False)
 
-            # Stream each agent step in real-time
             async for frame in run_multi_agent_war_room_stream(prompt, driver, pro_unlocked):
                 await websocket.send_json(frame)
 
@@ -136,9 +131,6 @@ async def websocket_multi_agent_endpoint(websocket: WebSocket):
 
 @app.post("/api/chat")
 def chat_endpoint(req: ChatRequest):
-    """
-    Standard HTTP POST chat endpoint routing through Multi-Agent War Room.
-    """
     try:
         ai_response = run_apex_race_engineer_agent(
             prompt=req.prompt,
@@ -152,21 +144,6 @@ def chat_endpoint(req: ChatRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/paytm/create_order")
-def create_paytm_order_endpoint():
-    order = create_paytm_order(amount=49.0)
-    return order
-
-@app.post("/api/paytm/webhook")
-def paytm_webhook_endpoint(req: WebhookRequest):
-    res = process_paytm_webhook(req.order_id, req.status or "TXN_SUCCESS")
-    return res
-
-@app.get("/api/paytm/status/{order_id}")
-def paytm_status_endpoint(order_id: str):
-    status = check_payment_status(order_id)
-    return status
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
